@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Set
 
 from unidiff import PatchSet  # type: ignore
@@ -88,6 +89,8 @@ class PRInfo:
         self.diff_urls = []
         self.release_pr = 0
         ref = github_event.get("ref", "refs/heads/master")
+        self.base_pushed_at = datetime.fromtimestamp(0)
+        self.head_pushed_at = datetime.fromtimestamp(0)
         if ref and ref.startswith("refs/heads/"):
             ref = ref[11:]
 
@@ -132,14 +135,24 @@ class PRInfo:
             self.commit_html_url = f"{repo_prefix}/commits/{self.sha}"
             self.pr_html_url = f"{repo_prefix}/pull/{self.number}"
 
+            base = github_event["pull_request"]["base"]
             # master or backport/xx.x/xxxxx - where the PR will be merged
-            self.base_ref = github_event["pull_request"]["base"]["ref"]
+            self.base_ref = base["ref"]
             # ClickHouse/ClickHouse
-            self.base_name = github_event["pull_request"]["base"]["repo"]["full_name"]
+            self.base_name = base["repo"]["full_name"]
+            self.base_pushed_at = datetime.strptime(
+                base["repo"]["pushed_at"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+
+            head = github_event["pull_request"]["head"]
             # any_branch-name - the name of working branch name
-            self.head_ref = github_event["pull_request"]["head"]["ref"]
+            self.head_ref = head["ref"]
             # UserName/ClickHouse or ClickHouse/ClickHouse
-            self.head_name = github_event["pull_request"]["head"]["repo"]["full_name"]
+            self.head_name = head["repo"]["full_name"]
+            self.head_pushed_at = datetime.strptime(
+                head["repo"]["pushed_at"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+
             self.body = github_event["pull_request"]["body"]
             self.labels = {
                 label["name"] for label in github_event["pull_request"]["labels"]
