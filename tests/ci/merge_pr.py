@@ -6,7 +6,7 @@ import argparse
 import logging
 
 from datetime import datetime
-from typing import Dict, Iterable
+from typing import Dict
 
 from get_robot_token import get_best_robot_token
 from github_helper import GitHub, NamedUser, PullRequest
@@ -39,7 +39,7 @@ class Reviews:
                 continue
             self._review_per_user[user] = r
 
-    def is_approved(self) -> bool:
+    def is_approved(self, pr_info: PRInfo) -> bool:
         """Checks if the PR is approved, and no changes made after the last approval"""
         if not self.reviews:
             logging.info("There aren't reviews for PR #%s", self.pr.number)
@@ -67,7 +67,7 @@ class Reviews:
                     if r.state == "APPROVED"
                 ),
             )
-            if self.approved_at < self.pr.head.repo.pushed_at:
+            if self.approved_at < pr_info.head_pushed_at:
                 logging.info(
                     "There are changes after approve at %s", self.pr.head.repo.pushed_at
                 )
@@ -102,6 +102,7 @@ def parse_args() -> argparse.Namespace:
         help="PR number to check",
     )
     args = parser.parse_args()
+    args.pr_info = pr_info
     return args
 
 
@@ -117,7 +118,7 @@ def main():
 
     if args.check_approved:
         reviews = Reviews(pr)
-        if not reviews.is_approved():
+        if not reviews.is_approved(args.pr_info):
             logging.info("We don't merge the PR")
             return
 
