@@ -45,7 +45,12 @@ class Reviews:
             logging.info("There aren't reviews for PR #%s", self.pr.number)
             return False
 
-        statuses = {r.state for r in self._review_per_user.values()}
+        # We consider reviews only from the ORG members
+        statuses = {
+            r.state
+            for r in self._review_per_user.values()
+            if r.raw_data["author_association"] == "MEMBER"
+        }
 
         if "CHANGES_REQUESTED" in statuses:
             logging.info(
