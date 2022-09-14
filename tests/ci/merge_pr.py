@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from typing import Dict
 
+from commit_status_helper import get_commit_filtered_statuses
 from get_robot_token import get_best_robot_token
 from github_helper import GitHub, NamedUser, PullRequest
 from github.PullRequestReview import PullRequestReview
@@ -95,6 +96,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="if set, checks that the PR is approved and no changes required",
     )
+    parser.add_argument("--check-green", default=True, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--no-check-green",
+        dest="check_green",
+        action="store_false",
+        default=argparse.SUPPRESS,
+        help="(dangerous) if set, skip check commit to having all green statuses",
+    )
     parser.add_argument(
         "--repo",
         default=pr_info.repo_full_name,
@@ -121,10 +130,24 @@ def main():
     if pr.is_merged():
         logging.info("The PR #%s is already merged", pr.number)
 
+    if args.check_green:
+        logging.info("Checking that all PR's statuses are green")
+        commit = repo.get_commit(pr.head.sha)
+        failed_statuses = [
+            status.context
+            for status in get_commit_filtered_statuses(commit)
+            if status.state != "success"
+        ]
+        if failed_statuses:
+            logging.warning(
+                "Some statuses aren't success:\n  %s", ",\n  ".join(failed_statuses)
+            )
+            return
+
     if args.check_approved:
         reviews = Reviews(pr)
         if not reviews.is_approved(args.pr_info):
-            logging.info("We don't merge the PR")
+            logging.warning("We don't merge the PR")
             return
 
     logging.info("Merging the PR")
