@@ -13,6 +13,7 @@
 #include <Analyzer/Passes/AggregateFunctionsArithmericOperationsPass.h>
 #include <Analyzer/Passes/UniqInjectiveFunctionsEliminationPass.h>
 #include <Analyzer/Passes/OrderByLimitByDuplicateEliminationPass.h>
+#include <Analyzer/Passes/OptimizeRedundantFunctionsInOrderByPass.h>
 
 #include <IO/WriteHelpers.h>
 #include <IO/Operators.h>
@@ -40,7 +41,6 @@ namespace ErrorCodes
   * TODO: Support setting optimize_move_functions_out_of_any.
   * TODO: Support setting optimize_aggregators_of_group_by_keys.
   * TODO: Support setting optimize_duplicate_order_by_and_distinct.
-  * TODO: Support setting optimize_redundant_functions_in_order_by.
   * TODO: Support setting optimize_monotonous_functions_in_order_by.
   * TODO: Support setting optimize_if_transform_strings_to_enum.
   * TODO: Support settings.optimize_syntax_fuse_functions.
@@ -143,6 +143,9 @@ void addQueryTreePasses(QueryTreePassManager & manager)
 
     if (settings.optimize_if_chain_to_multiif)
         manager.addPass(std::make_shared<IfChainToMultiIfPass>());
+
+    if (settings.optimize_redundant_functions_in_order_by)
+        manager.addPass(std::make_shared<OptimizeRedundantFunctionsInOrderByPass>());
 
     manager.addPass(std::make_shared<OrderByTupleEliminationPass>());
     manager.addPass(std::make_shared<OrderByLimitByDuplicateEliminationPass>());
