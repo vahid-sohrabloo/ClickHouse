@@ -37,14 +37,12 @@ public:
     using Mapped = TMapped;
     using MappedPtr = std::shared_ptr<Mapped>;
 
-    CacheBase(size_t max_size, size_t max_elements_size = 0, String cache_policy_name = "", double size_ratio = 0.5)
+    explicit CacheBase(size_t max_size, size_t max_elements_size = 0, String cache_policy_name = "", double size_ratio = 0.5)
     {
         auto on_weight_loss_function = [&](size_t weight_loss) { onRemoveOverflowWeightLoss(weight_loss); };
 
         if (cache_policy_name.empty())
-        {
             cache_policy_name = default_cache_policy_name;
-        }
 
         if (cache_policy_name == "LRU")
         {
@@ -62,7 +60,7 @@ public:
         }
     }
 
-    MappedPtr get(const Key & key)
+    MappedPtr get(const Key & key) const
     {
         std::lock_guard lock(mutex);
         auto res = cache_policy->get(key, lock);
@@ -194,8 +192,8 @@ private:
 
     inline static const String default_cache_policy_name = "SLRU";
 
-    std::atomic<size_t> hits{0};
-    std::atomic<size_t> misses{0};
+    mutable std::atomic<size_t> hits{0};
+    mutable std::atomic<size_t> misses{0};
 
     /// Represents pending insertion attempt.
     struct InsertToken

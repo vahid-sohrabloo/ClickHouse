@@ -23,7 +23,6 @@
 #include <Databases/IDatabase.h>
 #include <Storages/IStorage.h>
 #include <Storages/MarkCache.h>
-#include <Storages/QueryCache.h>
 #include <Storages/MergeTree/MergeList.h>
 #include <Storages/MergeTree/MovesList.h>
 #include <Storages/MergeTree/ReplicatedFetchList.h>
@@ -41,6 +40,7 @@
 #include <Interpreters/ActionLocksManager.h>
 #include <Interpreters/ExternalLoaderXMLConfigRepository.h>
 #include <Interpreters/TemporaryDataOnDisk.h>
+#include <Interpreters/Cache/QueryResultCache.h>
 #include <Core/Settings.h>
 #include <Core/SettingsQuirks.h>
 #include <Access/AccessControl.h>
@@ -227,7 +227,7 @@ struct ContextSharedPart : boost::noncopyable
     mutable std::unique_ptr<ThreadPool> load_marks_threadpool; /// Threadpool for loading marks cache.
     mutable UncompressedCachePtr index_uncompressed_cache;  /// The cache of decompressed blocks for MergeTree indices.
     mutable MarkCachePtr index_mark_cache;                  /// Cache of marks in compressed files of MergeTree indices.
-    mutable QueryCachePtr query_cache;
+    mutable QueryResultCachePtr query_result_cache;         /// Cache of query results.
     mutable MMappedFileCachePtr mmap_cache; /// Cache of mmapped files to avoid frequent open/map/unmap/close and to reuse from several threads.
     ProcessList process_list;                               /// Executing queries at the moment.
     GlobalOvercommitTracker global_overcommit_tracker;
@@ -1902,27 +1902,27 @@ void Context::dropIndexMarkCache() const
         shared->index_mark_cache->reset();
 }
 
-void Context::setQueryCache(size_t cache_size_in_bytes)
+void Context::setQueryResultCache(size_t cache_size_in_bytes)
 {
     auto lock = getLock();
 
-    if (shared->query_cache)
-        throw Exception("Query cache has been already created.", ErrorCodes::LOGICAL_ERROR);
+    if (shared->query_result_cache)
+        throw Exception("Query result cache has been already created.", ErrorCodes::LOGICAL_ERROR);
 
-    shared->query_cache = std::make_shared<QueryCache>(cache_size_in_bytes);
+    shared->query_result_cache = std::make_shared<QueryResultCache>(cache_size_in_bytes);
 }
 
-QueryCachePtr Context::getQueryCache() const
+QueryResultCachePtr Context::getQueryResultCache() const
 {
     auto lock = getLock();
-    return shared->query_cache;
+    return shared->query_result_cache;
 }
 
-void Context::dropQueryCache() const
+void Context::dropQueryResultCache() const
 {
     auto lock = getLock();
-    if (shared->query_cache)
-        shared->query_cache->reset();
+    if (shared->query_result_cache)
+        shared->query_result_cache->reset();
 }
 
 void Context::setMMappedFileCache(size_t cache_size_in_num_entries)
@@ -1965,8 +1965,8 @@ void Context::dropCaches() const
     if (shared->index_mark_cache)
         shared->index_mark_cache->reset();
 
-    if (shared->query_cache)
-        shared->query_cache->reset();
+    if (shared->query_result_cache)
+        shared->query_result_cache->reset();
 
     if (shared->mmap_cache)
         shared->mmap_cache->reset();

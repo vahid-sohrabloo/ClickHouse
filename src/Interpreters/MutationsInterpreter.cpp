@@ -1113,4 +1113,3 @@ void MutationsInterpreter::MutationKind::set(const MutationKindEnum & kind)
 }
 
 }
-
