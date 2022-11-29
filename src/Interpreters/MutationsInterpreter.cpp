@@ -294,12 +294,15 @@ MutationsInterpreter::MutationsInterpreter(
     : storage(std::move(storage_))
     , metadata_snapshot(metadata_snapshot_)
     , commands(std::move(commands_))
-    , context(Context::createCopy(context_))
     , can_execute(can_execute_)
     , select_limits(SelectQueryOptions().analyze(!can_execute).ignoreLimits().ignoreProjections())
     , return_all_columns(return_all_columns_)
     , return_deleted_rows(return_deleted_rows_)
 {
+    auto context_copy = Context::createCopy(context_);
+    context_copy->setSetting("query_cache_active_usage", false);
+    context_copy->setSetting("query_cache_passive_usage", false);
+    context = context_copy;
     mutation_ast = prepare(!can_execute);
 }
 
@@ -1110,3 +1113,4 @@ void MutationsInterpreter::MutationKind::set(const MutationKindEnum & kind)
 }
 
 }
+

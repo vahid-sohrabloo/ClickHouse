@@ -1500,6 +1500,10 @@ try
     if (index_mark_cache_size)
         global_context->setIndexMarkCache(index_mark_cache_size);
 
+    size_t query_cache_size_in_bytes = config().getUInt64("query_cache_size_in_bytes", 1 * (1ULL << 20));
+    if (query_cache_size_in_bytes)
+        global_context->setQueryCache(query_cache_size_in_bytes);
+
     /// A cache for mmapped files.
     size_t mmap_cache_size = config().getUInt64("mmap_cache_size", 1000);   /// The choice of default is arbitrary.
     if (mmap_cache_size)

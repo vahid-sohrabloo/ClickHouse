@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
+#include <vector>
 
 #include <Access/EnabledRowPolicies.h>
 #include <Core/QueryProcessingStage.h>
@@ -13,6 +15,9 @@
 #include <Storages/ReadInOrderOptimizer.h>
 #include <Storages/SelectQueryInfo.h>
 #include <Storages/TableLockHolder.h>
+#include <Storages/QueryCache.h>
+#include <Processors/Chunk.h>
+#include <Parsers/IAST.h>
 #include <QueryPipeline/Pipe.h>
 
 #include <Columns/FilterDescription.h>
@@ -194,6 +199,8 @@ private:
     void executeDistinct(QueryPlan & query_plan, bool before_order, Names columns, bool pre_distinct);
     void executeExtremes(QueryPlan & query_plan);
     void executeSubqueriesInSetsAndJoins(QueryPlan & query_plan);
+    void executePutInCache(QueryPlan & query_plan);
+    bool executeReadFromCache(QueryPlan & query_plan);
 
     enum class Modificator
     {
