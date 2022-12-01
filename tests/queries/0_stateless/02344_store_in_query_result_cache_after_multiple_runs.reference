@@ -1,32 +1,35 @@
 -- { echoOn }
 
+SYSTEM DROP QUERY RESULT CACHE;
 DROP TABLE IF EXISTS t;
 CREATE TABLE t (a UInt32, b UInt32, c UInt32, d UInt32) ENGINE=Memory;
 INSERT INTO t VALUES (0, 2, 4, 3);
 SET experimental_query_result_cache_active_usage = true;
 SET experimental_query_result_cache_passive_usage = true;
 SET min_query_runs_for_query_result_cache = 1;
-EXPLAIN SELECT a from t;
-QueryResultCachingStep (Put query result in cache)
-  Expression ((Projection + Before ORDER BY))
-    ReadFromStorage (Memory)
+SELECT a from t;
+0
+SELECT * FROM system.queryresult_cache;
+SELECT a FROM t	2236632744409795448	132
 SET min_query_runs_for_query_result_cache = 2;
-EXPLAIN SELECT b from t;
-Expression ((Projection + Before ORDER BY))
-  ReadFromStorage (Memory)
-EXPLAIN SELECT b from t;
-QueryResultCachingStep (Put query result in cache)
-  Expression ((Projection + Before ORDER BY))
-    ReadFromStorage (Memory)
+SELECT b from t;
+2
+SELECT b from t;
+2
+SELECT * FROM system.queryresult_cache;
+SELECT query, query_hash, result_size FROM system.queryresult_cache	8270831151736596638	551
+SELECT b FROM t	5826086239458893705	132
+SELECT a FROM t	2236632744409795448	132
 SET min_query_runs_for_query_result_cache = 3;
-EXPLAIN SELECT c from t;
-Expression ((Projection + Before ORDER BY))
-  ReadFromStorage (Memory)
-EXPLAIN SELECT c from t;
-Expression ((Projection + Before ORDER BY))
-  ReadFromStorage (Memory)
-EXPLAIN SELECT c from t;
-QueryResultCachingStep (Put query result in cache)
-  Expression ((Projection + Before ORDER BY))
-    ReadFromStorage (Memory)
+SELECT c from t;
+4
+SELECT c from t;
+4
+SELECT c from t;
+4
+SELECT * FROM system.queryresult_cache;
+SELECT c FROM t	2681806077392269361	132
+SELECT query, query_hash, result_size FROM system.queryresult_cache	8270831151736596638	551
+SELECT b FROM t	5826086239458893705	132
+SELECT a FROM t	2236632744409795448	132
 DROP TABLE t;

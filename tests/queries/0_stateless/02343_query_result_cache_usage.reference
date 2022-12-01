@@ -1,5 +1,6 @@
 -- { echoOn }
 
+SYSTEM DROP QUERY RESULT CACHE;
 DROP TABLE IF EXISTS t;
 CREATE TABLE t (n UInt32) ENGINE=Memory;
 INSERT INTO t VALUES (1);
@@ -7,27 +8,33 @@ SET min_query_runs_for_query_result_cache = 0;
 -- no caching at all
 SET experimental_query_result_cache_active_usage = false;
 SET experimental_query_result_cache_passive_usage = false;
-EXPLAIN SELECT n from t;
-Expression ((Projection + Before ORDER BY))
-  ReadFromStorage (Memory)
+SELECT n from t;
+1
+SELECT * FROM system.queryresult_cache;
 -- try use cache when it is empty
 SET experimental_query_result_cache_active_usage = false;
 SET experimental_query_result_cache_passive_usage = true;
-EXPLAIN SELECT n from t;
-Expression ((Projection + Before ORDER BY))
-  ReadFromStorage (Memory)
+SELECT n from t;
+1
+SELECT * FROM system.queryresult_cache;
 -- put query result into cache
 SET experimental_query_result_cache_active_usage = true;
 SET experimental_query_result_cache_passive_usage = false;
-EXPLAIN SELECT n from t;
-QueryResultCachingStep (Put query result in cache)
-  Expression ((Projection + Before ORDER BY))
-    ReadFromStorage (Memory)
+SELECT n from t;
+1
+SELECT * FROM system.queryresult_cache;
+SELECT n FROM t	11738164628535139603	132
 -- put query result in cache and access it in further queries
 SET experimental_query_result_cache_active_usage = true;
 SET experimental_query_result_cache_passive_usage = true;
 SELECT n from t;
 1
-EXPLAIN SELECT n from t;
-ReadFromPreparedSource (Read query result from cache)
+-- cache has now three entries:
+-- 1. the previous SELECT n from t;
+-- 2. the current SELECT n from t; since the (changed) configuration is part of the cache key
+-- 3. SELECT * FROM system.queryresult_cache; this should not happen
+SELECT * FROM system.queryresult_cache;
+SELECT query, query_hash, result_size FROM system.queryresult_cache	8270831151736596638	551
+SELECT n FROM t	11738164628535139603	132
+SELECT n FROM t	11738164628535139603	132
 DROP TABLE t;

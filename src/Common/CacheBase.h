@@ -174,6 +174,12 @@ public:
         return cache_policy->count(lock);
     }
 
+    std::vector<std::pair<Key, MappedPtr>> dump() const
+    {
+        std::lock_guard lock(mutex);
+        return cache_policy->dump(lock);
+    }
+
     size_t maxSize() const
         TSA_NO_THREAD_SAFETY_ANALYSIS // disabled because max_size of cache_policy is a constant parameter
     {

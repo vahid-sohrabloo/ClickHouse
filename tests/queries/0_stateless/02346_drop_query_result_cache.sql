@@ -13,11 +13,11 @@ SET min_query_runs_for_query_result_cache = 3;
 SELECT b from t;
 SELECT b from t;
 SELECT b from t;
-EXPLAIN SELECT b from t;
+SELECT * FROM system.queryresult_cache;
 
--- query results are no longer in cache after drop
+-- -- query results are no longer in cache after drop
 SYSTEM DROP QUERY RESULT CACHE;
-EXPLAIN SELECT b from t;
+SELECT * FROM system.queryresult_cache;
 
 DROP TABLE t;
 

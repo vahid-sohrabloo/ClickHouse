@@ -33,6 +33,8 @@ public:
     virtual MappedPtr get(const Key & key, std::lock_guard<std::mutex> & /* cache_lock */) = 0;
     virtual void set(const Key & key, const MappedPtr & mapped, std::lock_guard<std::mutex> & /* cache_lock */) = 0;
 
+    virtual std::vector<std::pair<Key, MappedPtr>> dump(std::lock_guard<std::mutex> & /* cache_lock */) = 0;
+
     virtual ~ICachePolicy() = default;
 
 protected:

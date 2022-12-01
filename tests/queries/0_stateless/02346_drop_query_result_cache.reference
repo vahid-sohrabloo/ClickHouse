@@ -14,12 +14,13 @@ SELECT b from t;
 42
 SELECT b from t;
 42
-EXPLAIN SELECT b from t;
-ReadFromPreparedSource (Read query result from cache)
--- query results are no longer in cache after drop
+SELECT * FROM system.queryresult_cache;
+SELECT b FROM t	5826086239458893705	132
+SELECT c FROM t	2681806077392269361	132
+SELECT query, query_hash, result_size FROM system.queryresult_cache	8270831151736596638	551
+SELECT b FROM t	5826086239458893705	132
+SELECT a FROM t	2236632744409795448	132
+-- -- query results are no longer in cache after drop
 SYSTEM DROP QUERY RESULT CACHE;
-EXPLAIN SELECT b from t;
-QueryResultCachingStep (Put query result in cache)
-  Expression ((Projection + Before ORDER BY))
-    ReadFromStorage (Memory)
+SELECT * FROM system.queryresult_cache;
 DROP TABLE t;

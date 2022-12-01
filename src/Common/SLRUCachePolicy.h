@@ -151,6 +151,17 @@ public:
         removeOverflow(probationary_queue, max_size, current_size, /*is_protected=*/false);
     }
 
+    std::vector<std::pair<Key, MappedPtr>> dump(std::lock_guard<std::mutex> & /*cache_lock*/) override
+    {
+        std::vector<std::pair<Key, MappedPtr>> res;
+        res.reserve(cells.size());
+
+        for (const auto & cell : cells)
+            res.push_back({cell.first, cell.second.value});
+
+        return res;
+    }
+
 protected:
     using SLRUQueue = std::list<Key>;
     using SLRUQueueIterator = typename SLRUQueue::iterator;

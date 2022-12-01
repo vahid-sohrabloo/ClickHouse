@@ -20,6 +20,14 @@ bool QueryResultCache::Key::operator==(const Key & other) const
         && username == other.username;
 }
 
+String QueryResultCache::Key::astToQueryString() const
+{
+    WriteBufferFromOwnString buf;
+    IAST::FormatSettings format_settings(buf, /*one_line*/ true);
+    ast->format(format_settings);
+    return buf.str();
+}
+
 size_t QueryResultCache::KeyHasher::operator()(const Key & key) const
 {
     SipHash hash;

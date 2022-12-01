@@ -118,6 +118,17 @@ public:
         removeOverflow();
     }
 
+    std::vector<std::pair<Key, MappedPtr>> dump(std::lock_guard<std::mutex> & /*cache_lock*/) override
+    {
+        std::vector<std::pair<Key, MappedPtr>> res;
+        res.reserve(cells.size());
+
+        for (const auto & cell : cells)
+            res.push_back({cell.first, cell.second.value});
+
+        return res;
+    }
+
 protected:
     using LRUQueue = std::list<Key>;
     using LRUQueueIterator = typename LRUQueue::iterator;
