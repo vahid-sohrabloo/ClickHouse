@@ -38,10 +38,8 @@ public:
 private:
     struct Entry
     {
-        Entry(Chunks chunks_, bool is_writing_);
-
+        explicit Entry(Chunks chunks_);
         Chunks chunks;
-        std::atomic<bool> is_writing;
     };
 
     struct KeyHasher
@@ -75,10 +73,9 @@ public:
         void insertChunk(Chunk && chunk);
     private:
         QueryResultCache::Cache & cache;
-        Key key;
+        const Key key;
+        std::shared_ptr<Entry> entry;
         bool can_insert;
-        std::shared_ptr<Entry> data;
-        std::shared_ptr<Entry> result;
     };
 
     explicit QueryResultCache(size_t size_in_bytes);

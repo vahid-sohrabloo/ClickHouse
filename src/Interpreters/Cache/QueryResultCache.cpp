@@ -20,9 +20,8 @@ bool QueryResultCache::Key::operator==(const Key & other) const
         && username == other.username;
 }
 
-QueryResultCache::Entry::Entry(Chunks chunks_, bool is_writing_)
+QueryResultCache::Entry::Entry(Chunks chunks_)
     : chunks(std::move(chunks_))
-    , is_writing(is_writing_)
 {
 }
 
@@ -75,11 +74,12 @@ QueryResultCache::Reader::Reader(const Cache & cache_, Key key)
 {
     std::shared_ptr<Entry> entry = cache_.get(key);
 
-    if (entry == nullptr || entry->is_writing.load() == true)
+    if (!entry)
     {
         LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found no cache entry with the given cache key");
         return;
     }
+
     LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found a cache entry with the given cache key");
 
     /// TODO Instead of saving chunk*s* as cache entry, we could save a single chunk and save their concatenation. Probably faster as theS
@@ -97,32 +97,23 @@ Pipe && QueryResultCache::Reader::getPipe()
     return std::move(pipe);
 }
 
-// TODO simplify logic in Writer, we should save only finished entries in the cache (i.e. remove Entry::is_writing), also: do we need
-// "result"?
-
 QueryResultCache::Writer::Writer(Cache & cache_, Key key_)
     : cache(cache_)
     , key(key_)
-    , can_insert(false)
-    , data(std::move(cache_.getOrSet(key,
-                                     [&] {
-                                             can_insert = true;
-                                             return std::make_shared<Entry>(Chunks{}, true);
-                                         }
-                                     ).first))
-    , result(std::make_shared<Entry>(Chunks{}, false))
+    , entry(std::make_shared<Entry>(Chunks{}))
+    , can_insert(cache.get(key) == nullptr)
 {
 }
 
 QueryResultCache::Writer::~Writer()
 try
 {
-    if (can_insert)
-    {
-        cache.set(key, result);
-        LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Writer"), "Stored key with header = {} and weight = {}",
-                  key.header.getNamesAndTypesList().toString(), WeightFunction()(*result));
-    }
+    if (!can_insert)
+        return;
+
+    cache.set(key, entry);
+    LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Writer"), "Stored key with header = {} and weight = {}",
+              key.header.getNamesAndTypesList().toString(), WeightFunction()(*entry));
 }
 catch (const std::exception &)
 {
@@ -133,13 +124,10 @@ void QueryResultCache::Writer::insertChunk(Chunk && chunk)
     if (!can_insert)
         return;
 
-    result->chunks.push_back(std::move(chunk));
+    entry->chunks.push_back(std::move(chunk));
 
-    if (WeightFunction()(*result) > key.settings.query_result_cache_max_entry_size)
-    {
+    if (WeightFunction()(*entry) > key.settings.query_result_cache_max_entry_size)
         can_insert = false;
-        cache.remove(key);
-    }
 }
 
 QueryResultCache::QueryResultCache(size_t size_in_bytes)

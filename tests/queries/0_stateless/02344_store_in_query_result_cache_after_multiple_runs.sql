@@ -1,7 +1,5 @@
 -- { echoOn }
 
-select * from system.settings where name like 'experimental_query_%';
-
 DROP TABLE IF EXISTS t;
 CREATE TABLE t (a UInt32, b UInt32, c UInt32, d UInt32) ENGINE=Memory;
 INSERT INTO t VALUES (0, 2, 4, 3);
