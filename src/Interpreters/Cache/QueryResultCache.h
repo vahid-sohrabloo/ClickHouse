@@ -36,12 +36,6 @@ public:
     };
 
 private:
-    struct Entry
-    {
-        explicit Entry(Chunks chunks_);
-        Chunks chunks;
-    };
-
     struct KeyHasher
     {
         size_t operator()(const Key & key) const;
@@ -49,10 +43,10 @@ private:
 
     struct WeightFunction
     {
-        size_t operator()(const Entry & entry) const;
+        size_t operator()(const Chunk & chunk) const;
     };
 
-    using Cache = CacheBase<Key, Entry, KeyHasher, WeightFunction>;
+    using Cache = CacheBase<Key, Chunk, KeyHasher, WeightFunction>;
 
 public:
     class Reader
@@ -74,7 +68,7 @@ public:
     private:
         QueryResultCache::Cache & cache;
         const Key key;
-        std::shared_ptr<Entry> entry;
+        Chunks chunks;
         bool can_insert;
     };
 

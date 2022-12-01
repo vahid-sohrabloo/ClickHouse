@@ -20,11 +20,6 @@ bool QueryResultCache::Key::operator==(const Key & other) const
         && username == other.username;
 }
 
-QueryResultCache::Entry::Entry(Chunks chunks_)
-    : chunks(std::move(chunks_))
-{
-}
-
 size_t QueryResultCache::KeyHasher::operator()(const Key & key) const
 {
     SipHash hash;
@@ -41,12 +36,34 @@ size_t QueryResultCache::KeyHasher::operator()(const Key & key) const
     return res;
 }
 
-size_t QueryResultCache::WeightFunction::operator()(const QueryResultCache::Entry & entry) const
+size_t QueryResultCache::WeightFunction::operator()(const Chunk & chunk) const
 {
-    size_t weight = 0;
-    for (const auto & chunk : entry.chunks)
-        weight += chunk.allocatedBytes();
-    return weight;
+    return chunk.allocatedBytes();
+}
+
+QueryResultCache::Reader::Reader(const Cache & cache_, Key key)
+{
+    std::shared_ptr<Chunk> entry = cache_.get(key);
+
+    if (!entry)
+    {
+        LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found no cache entry with the given cache key");
+        return;
+    }
+
+    LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found a cache entry with the given cache key");
+
+    pipe = Pipe(std::make_shared<SourceFromSingleChunk>(key.header, entry->clone()));
+}
+
+bool QueryResultCache::Reader::containsResult() const
+{
+    return !pipe.empty();
+}
+
+Pipe && QueryResultCache::Reader::getPipe()
+{
+    return std::move(pipe);
 }
 
 namespace {
@@ -68,39 +85,19 @@ Chunk toSingleChunk(const Chunks& chunks)
     return Chunk(std::move(result_columns), num_rows);
 }
 
+size_t weight(const Chunks & chunks)
+{
+    size_t weight = 0;
+    for (const auto & chunk : chunks)
+        weight += chunk.allocatedBytes();
+    return weight;
 }
 
-QueryResultCache::Reader::Reader(const Cache & cache_, Key key)
-{
-    std::shared_ptr<Entry> entry = cache_.get(key);
-
-    if (!entry)
-    {
-        LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found no cache entry with the given cache key");
-        return;
-    }
-
-    LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Reader"), "Found a cache entry with the given cache key");
-
-    /// TODO Instead of saving chunk*s* as cache entry, we could save a single chunk and save their concatenation. Probably faster as theS
-    ///      cache is read more often than written, but depends on the workload.
-    pipe = Pipe(std::make_shared<SourceFromSingleChunk>(key.header, toSingleChunk(entry->chunks)));
-}
-
-bool QueryResultCache::Reader::containsResult() const
-{
-    return !pipe.empty();
-}
-
-Pipe && QueryResultCache::Reader::getPipe()
-{
-    return std::move(pipe);
 }
 
 QueryResultCache::Writer::Writer(Cache & cache_, Key key_)
     : cache(cache_)
     , key(key_)
-    , entry(std::make_shared<Entry>(Chunks{}))
     , can_insert(cache.get(key) == nullptr)
 {
 }
@@ -111,7 +108,9 @@ try
     if (!can_insert)
         return;
 
+    auto entry = std::make_shared<Chunk>(toSingleChunk(chunks));
     cache.set(key, entry);
+
     LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Writer"), "Stored key with header = {} and weight = {}",
               key.header.getNamesAndTypesList().toString(), WeightFunction()(*entry));
 }
@@ -124,9 +123,9 @@ void QueryResultCache::Writer::insertChunk(Chunk && chunk)
     if (!can_insert)
         return;
 
-    entry->chunks.push_back(std::move(chunk));
+    chunks.push_back(std::move(chunk));
 
-    if (WeightFunction()(*entry) > key.settings.query_result_cache_max_entry_size)
+    if (weight(chunks) > key.settings.query_result_cache_max_entry_size)
         can_insert = false;
 }
 
