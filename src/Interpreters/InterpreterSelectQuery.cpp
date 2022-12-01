@@ -95,6 +95,7 @@
 #include <Common/scope_guard_safe.h>
 #include <Common/typeid_cast.h>
 
+#include <Functions/FunctionFactory.h>
 
 namespace DB
 {
@@ -727,10 +728,38 @@ InterpreterSelectQuery::InterpreterSelectQuery(
     sanitizeBlock(result_header, true);
 }
 
+static void has_non_cacheable_functions(ASTPtr ast, ContextPtr context, bool & cacheable)
+{
+    const FunctionFactory & function_factory = FunctionFactory::instance();
+
+    if (const auto * function = ast->as<ASTFunction>())
+    {
+        if (const FunctionOverloadResolverPtr resolver = function_factory.tryGet(function->name, context))
+        {
+            if (!resolver->isDeterministic())
+            {
+                cacheable = false;
+                return;
+            }
+        }
+    }
+
+    for (const auto & child : ast->children)
+    {
+        has_non_cacheable_functions(child, context, cacheable);
+    }
+}
+
 void InterpreterSelectQuery::executeWriteToQueryResultCache(QueryPlan & query_plan)
 {
     auto settings = context->getSettingsRef();
     QueryResultCachePtr query_result_cache = context->getQueryResultCache();
+
+    // TODO more none cacheable functions
+    bool cacheable = true;
+    has_non_cacheable_functions(query_ptr, context, cacheable);
+    if (!cacheable)
+        return;
 
     if (!settings.experimental_query_result_cache_active_usage || query_result_cache == nullptr)
         return;
