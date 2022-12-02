@@ -1,11 +1,19 @@
 #include "MarkRange.h"
 
+#include <IO/ReadHelpers.h>
+#include <IO/WriteHelpers.h>
+
 namespace DB
 {
 
 namespace ErrorCodes
 {
     extern const int LOGICAL_ERROR;
+}
+
+size_t MarkRange::getNumberOfMarks() const
+{
+    return end - begin;
 }
 
 bool MarkRange::operator==(const MarkRange & rhs) const
@@ -46,6 +54,46 @@ std::string toString(const MarkRanges & ranges)
         result += "(" + std::to_string(mark_range.begin) + ", " + std::to_string(mark_range.end) + ")";
     }
     return result;
+}
+
+size_t MarkRanges::getNumberOfMarks() const
+{
+    size_t result = 0;
+    for (const auto & mark : *this)
+        result += mark.getNumberOfMarks();
+    return result;
+}
+
+void MarkRanges::serialize(WriteBuffer & out) const
+{
+    writeIntBinary(this->size(), out);
+
+    for (const auto & [begin, end] : *this)
+    {
+        writeIntBinary(begin, out);
+        writeIntBinary(end, out);
+    }
+}
+
+void MarkRanges::describe(WriteBuffer & out) const
+{
+    String result;
+    result += toString(this->size());
+    // TODO: More
+    out.write(result.c_str(), result.size());
+}
+
+void MarkRanges::deserialize(ReadBuffer & in)
+{
+    size_t size = 0;
+    readIntBinary(size, in);
+
+    this->resize(size);
+    for (size_t i = 0; i < size; ++i)
+    {
+        readIntBinary((*this)[i].begin, in);
+        readIntBinary((*this)[i].end, in);
+    }
 }
 
 }

@@ -135,7 +135,7 @@ NameSet injectRequiredColumns(
 
 
 MergeTreeReadTask::MergeTreeReadTask(
-    const MergeTreeData::DataPartPtr & data_part_,
+    const DataPartPtr & data_part_,
     const MarkRanges & mark_ranges_,
     size_t part_index_in_query_,
     const Names & ordered_names_,
@@ -156,7 +156,7 @@ MergeTreeReadTask::MergeTreeReadTask(
 
 
 MergeTreeBlockSizePredictor::MergeTreeBlockSizePredictor(
-    const MergeTreeData::DataPartPtr & data_part_, const Names & columns, const Block & sample_block)
+    const DataPartPtr & data_part_, const Names & columns, const Block & sample_block)
     : data_part(data_part_)
 {
     number_of_rows_in_part = data_part->rows_count;

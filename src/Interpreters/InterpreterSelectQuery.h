@@ -16,6 +16,7 @@
 #include <QueryPipeline/Pipe.h>
 
 #include <Columns/FilterDescription.h>
+#include "Storages/MergeTree/RequestResponse.h"
 
 namespace Poco
 {
@@ -127,7 +128,7 @@ public:
     /// but there will be no connection if we create Interpreter explicitly.
     /// The other problem is that context is copied inside Interpreter's constructor
     /// And with this method we can change the internals of cloned one
-    void setMergeTreeReadTaskCallbackAndClientInfo(MergeTreeReadTaskCallback && callback);
+    void setMergeTreeReadTaskCallbackAndClientInfo(MergeTreeAllRangesCallback && all_callback, MergeTreeReadTaskCallback && callback);
 
     /// It will set shard_num and shard_count to the client_info
     void setProperClientInfo(size_t replica_num, size_t replica_count);

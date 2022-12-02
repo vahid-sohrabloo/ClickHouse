@@ -39,7 +39,7 @@ public:
 
     std::string getName() const override { return "Merge"; }
 
-    bool isRemote() const override;
+    bool isRemote([[ maybe_unused ]] ContextPtr local_context) const override;
 
     /// The check is delayed to the read method. It checks the support of the tables used.
     bool supportsSampling() const override { return true; }

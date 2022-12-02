@@ -111,7 +111,7 @@ public:
     StorageID getStorageID() const;
 
     /// Returns true if the storage receives data from a remote server or servers.
-    virtual bool isRemote() const { return false; }
+    virtual bool isRemote([[ maybe_unused ]] ContextPtr local_context) const { return false; }
 
     /// Returns true if the storage is a view of a table or another view.
     virtual bool isView() const { return false; }

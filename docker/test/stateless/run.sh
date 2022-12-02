@@ -131,10 +131,18 @@ function run_tests()
     fi
 
     set +e
-    clickhouse-test --testname --shard --zookeeper --check-zookeeper-session --hung-check --print-time \
+    if [[ -n "$USE_PARALLEL_REPLICAS" ]] && [[ "$USE_PARALLEL_REPLICAS" -eq 1 ]]; then
+        clickhouse-test --client="clickhouse-client --use_hedged_requests=0  --allow_experimental_parallel_reading_from_replicas=1 \
+            --max_parallel_replicas=3 --cluster_for_parallel_replicas='test_cluster_one_shard_three_replicas_localhost'" \
+            --no-stateless --no-random-settings --order='asc' --test-runs "$NUM_TRIES" "${ADDITIONAL_OPTIONS[@]}" 2>&1 \
+        | ts '%Y-%m-%d %H:%M:%S' \
+        | tee -a test_output/test_result.txt
+    else
+        clickhouse-test --testname --shard --zookeeper --check-zookeeper-session --hung-check --print-time \
             --test-runs "$NUM_TRIES" "${ADDITIONAL_OPTIONS[@]}" 2>&1 \
         | ts '%Y-%m-%d %H:%M:%S' \
         | tee -a test_output/test_result.txt
+    fi
     set -e
 }
 

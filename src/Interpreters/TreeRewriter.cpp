@@ -994,16 +994,18 @@ using RewriteShardNumVisitor = InDepthNodeVisitor<RewriteShardNum, true>;
 }
 
 TreeRewriterResult::TreeRewriterResult(
+    ContextPtr context_,
     const NamesAndTypesList & source_columns_,
     ConstStoragePtr storage_,
     const StorageSnapshotPtr & storage_snapshot_,
     bool add_special)
-    : storage(storage_)
+    : WithContext(context_)
+    , storage(storage_)
     , storage_snapshot(storage_snapshot_)
     , source_columns(source_columns_)
 {
     collectSourceColumns(add_special);
-    is_remote_storage = storage && storage->isRemote();
+    is_remote_storage = storage && storage->isRemote(getContext());
 }
 
 /// Add columns from storage to source_columns list. Deduplicate resulted list.
@@ -1445,7 +1447,7 @@ TreeRewriterResultPtr TreeRewriter::analyze(
 
     const auto & settings = getContext()->getSettingsRef();
 
-    TreeRewriterResult result(source_columns, storage, storage_snapshot, false);
+    TreeRewriterResult result(getContext(), source_columns, storage, storage_snapshot, false);
 
     normalize(query, result.aliases, result.source_columns_set, false, settings, allow_self_aliases, getContext());
 

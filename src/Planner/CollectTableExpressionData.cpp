@@ -96,12 +96,12 @@ void collectTableExpressionData(QueryTreeNodePtr & query_node, PlannerContext & 
 
         if (auto * table_node = table_expression_node->as<TableNode>())
         {
-            bool storage_is_remote = table_node->getStorage()->isRemote();
+            bool storage_is_remote = table_node->getStorage()->isRemote(planner_context.getQueryContext());
             table_expression_data.setIsRemote(storage_is_remote);
         }
         else if (auto * table_function_node = table_expression_node->as<TableFunctionNode>())
         {
-            bool storage_is_remote = table_function_node->getStorage()->isRemote();
+            bool storage_is_remote = table_function_node->getStorage()->isRemote(planner_context.getQueryContext());
             table_expression_data.setIsRemote(storage_is_remote);
         }
 

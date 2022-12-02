@@ -1,6 +1,7 @@
+#include <Storages/MergeTree/MergeTreeParallelReplicasSelectProcessor.h>
+
 #include <Storages/MergeTree/IMergeTreeReader.h>
-#include <Storages/MergeTree/MergeTreeReadPool.h>
-#include <Storages/MergeTree/MergeTreeThreadSelectProcessor.h>
+#include <Storages/MergeTree/MergeTreeReadPoolParallelReplicas.h>
 #include <Interpreters/Context.h>
 
 
@@ -12,9 +13,9 @@ namespace ErrorCodes
     extern const int LOGICAL_ERROR;
 }
 
-MergeTreeThreadSelectAlgorithm::MergeTreeThreadSelectAlgorithm(
+MergeTreeParallelReplicasSelectProcessor::MergeTreeParallelReplicasSelectProcessor(
     size_t thread_,
-    const MergeTreeReadPoolPtr & pool_,
+    MergeTreeReadPoolParallelReplicasPtr pool_,
     UInt64 max_block_size_rows_,
     size_t preferred_block_size_bytes_,
     size_t preferred_max_column_in_block_size_bytes_,
@@ -36,14 +37,14 @@ MergeTreeThreadSelectAlgorithm::MergeTreeThreadSelectAlgorithm(
 }
 
 /// Requests read task from MergeTreeReadPool and signals whether it got one
-bool MergeTreeThreadSelectAlgorithm::getNewTaskImpl()
+bool MergeTreeParallelReplicasSelectProcessor::getNewTaskImpl()
 {
-    task = pool->getTask(thread);
+    task = pool->getTask();
     return static_cast<bool>(task);
 }
 
 
-void MergeTreeThreadSelectAlgorithm::finalizeNewTask()
+void MergeTreeParallelReplicasSelectProcessor::finalizeNewTask()
 {
     const std::string part_name = task->data_part->isProjectionPart() ? task->data_part->getParentPart()->name : task->data_part->name;
 
@@ -75,13 +76,13 @@ void MergeTreeThreadSelectAlgorithm::finalizeNewTask()
 }
 
 
-void MergeTreeThreadSelectAlgorithm::finish()
+void MergeTreeParallelReplicasSelectProcessor::finish()
 {
     reader.reset();
     pre_reader_for_step.clear();
 }
 
 
-MergeTreeThreadSelectAlgorithm::~MergeTreeThreadSelectAlgorithm() = default;
+MergeTreeParallelReplicasSelectProcessor::~MergeTreeParallelReplicasSelectProcessor() = default;
 
 }

@@ -87,7 +87,7 @@ public:
     /// because we can't be sure that underlying table supports PREWHERE.
     bool canMoveConditionsToPrewhere() const override { return false; }
 
-    bool isRemote() const override { return true; }
+    bool isRemote([[ maybe_unused ]] ContextPtr local_context) const override { return true; }
 
     /// Snapshot for StorageDistributed contains descriptions
     /// of columns of type Object for each shard at the moment

@@ -3454,6 +3454,20 @@ void Context::setMergeTreeReadTaskCallback(MergeTreeReadTaskCallback && callback
     merge_tree_read_task_callback = callback;
 }
 
+
+MergeTreeAllRangesCallback Context::getMergeTreeAllRangesCallback() const
+{
+    if (!merge_tree_all_ranges_callback.has_value())
+        throw Exception(ErrorCodes::LOGICAL_ERROR, "Next task callback for is not set for query {}", getInitialQueryId());
+
+    return merge_tree_all_ranges_callback.value();
+}
+
+void Context::setMergeTreeAllRangesCallback(MergeTreeAllRangesCallback && callback)
+{
+    merge_tree_all_ranges_callback = callback;
+}
+
 PartUUIDsPtr Context::getIgnoredPartUUIDs() const
 {
     auto lock = getLock();

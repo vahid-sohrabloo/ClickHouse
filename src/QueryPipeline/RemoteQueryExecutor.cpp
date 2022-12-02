@@ -286,7 +286,6 @@ Block RemoteQueryExecutor::read()
 
 std::variant<Block, int> RemoteQueryExecutor::read(std::unique_ptr<ReadContext> & read_context [[maybe_unused]])
 {
-
 #if defined(OS_LINUX)
     if (!sent_query)
     {
@@ -366,6 +365,9 @@ std::optional<Block> RemoteQueryExecutor::processPacket(Packet packet)
     {
         case Protocol::Server::MergeTreeReadTaskRequest:
             processMergeTreeReadTaskRequest(packet.request);
+            break;
+        case Protocol::Server::MergeTreeAllRangesAnnounecement:
+            processMergeTreeInitialReadAnnounecement(packet.announcement);
             break;
         case Protocol::Server::ReadTaskRequest:
             processReadTaskRequest();
@@ -465,13 +467,21 @@ void RemoteQueryExecutor::processReadTaskRequest()
     connections->sendReadTaskResponse(response);
 }
 
-void RemoteQueryExecutor::processMergeTreeReadTaskRequest(PartitionReadRequest request)
+void RemoteQueryExecutor::processMergeTreeReadTaskRequest(ParallelReadRequest request)
 {
     if (!parallel_reading_coordinator)
         throw Exception("Coordinator for parallel reading from replicas is not initialized", ErrorCodes::LOGICAL_ERROR);
 
     auto response = parallel_reading_coordinator->handleRequest(std::move(request));
     connections->sendMergeTreeReadTaskResponse(response);
+}
+
+void RemoteQueryExecutor::processMergeTreeInitialReadAnnounecement(InitialAllRangesAnnouncement announcement)
+{
+    if (!parallel_reading_coordinator)
+        throw Exception("Coordinator for parallel reading from replicas is not initialized", ErrorCodes::LOGICAL_ERROR);
+
+    parallel_reading_coordinator->handleInitialAllRangesAnnouncement(announcement);
 }
 
 void RemoteQueryExecutor::finish(std::unique_ptr<ReadContext> * read_context)

@@ -70,6 +70,7 @@
 #include <Common/quoteString.h>
 #include <Common/typeid_cast.h>
 #include <Common/noexcept_scope.h>
+#include "Core/QueryProcessingStage.h"
 #include <Processors/QueryPlan/ReadFromMergeTree.h>
 #include <Processors/Formats/IInputFormat.h>
 #include <AggregateFunctions/AggregateFunctionCount.h>
@@ -6305,6 +6306,17 @@ QueryProcessingStage::Enum MergeTreeData::getQueryProcessingStage(
     const StorageSnapshotPtr & storage_snapshot,
     SelectQueryInfo & query_info) const
 {
+    LOG_TRACE(&Poco::Logger::get("MergeTreeData"), "getQueryProcessingStage");
+
+    if (query_context->getClientInfo().collaborate_with_initiator)
+    {
+        LOG_TRACE(&Poco::Logger::get("MergeTreeData"), "Collaborate with inititiantor!");
+        return QueryProcessingStage::Enum::FetchColumns;
+    }
+
+    if (query_context->getSettingsRef().allow_experimental_parallel_reading_from_replicas && !query_context->getClientInfo().collaborate_with_initiator)
+        return QueryProcessingStage::Enum::WithMergeableState;
+
     if (to_stage >= QueryProcessingStage::Enum::WithMergeableState)
     {
         if (auto projection = getQueryProcessingStageWithAggregateProjection(query_context, storage_snapshot, query_info))

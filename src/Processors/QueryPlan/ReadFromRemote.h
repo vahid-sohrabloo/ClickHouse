@@ -74,8 +74,9 @@ class ReadFromParallelRemoteReplicasStep : public ISourceStep
 {
 public:
     ReadFromParallelRemoteReplicasStep(
+        ASTPtr query_ast_,
+        Cluster::ShardInfo shard_info,
         ParallelReplicasReadingCoordinatorPtr coordinator_,
-        ClusterProxy::SelectStreamFactory::Shard shard,
         Block header_,
         QueryProcessingStage::Enum stage_,
         StorageID main_table_,
@@ -93,25 +94,25 @@ public:
 
     void initializePipeline(QueryPipelineBuilder & pipeline, const BuildQueryPipelineSettings &) override;
 
+    void requestReadingInOrder();
+
 private:
 
     void addPipeForSingeReplica(Pipes & pipes, std::shared_ptr<ConnectionPoolWithFailover> pool, IConnections::ReplicaInfo replica_info);
 
+    Cluster::ShardInfo shard_info;
+    ASTPtr query_ast;
+    Block header;
     ParallelReplicasReadingCoordinatorPtr coordinator;
-    ClusterProxy::SelectStreamFactory::Shard shard;
     QueryProcessingStage::Enum stage;
-
     StorageID main_table;
     ASTPtr table_func_ptr;
-
     ContextPtr context;
-
     ThrottlerPtr throttler;
     Scalars scalars;
     Tables external_tables;
 
     std::shared_ptr<const StorageLimitsList> storage_limits;
-
     Poco::Logger * log;
 };
 

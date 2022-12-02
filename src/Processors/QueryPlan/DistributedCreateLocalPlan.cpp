@@ -39,8 +39,8 @@ std::unique_ptr<QueryPlan> createLocalPlan(
     const Block & header,
     ContextPtr context,
     QueryProcessingStage::Enum processed_stage,
-    UInt32 shard_num,
-    UInt32 shard_count,
+    size_t shard_num,
+    size_t shard_count,
     size_t replica_num,
     size_t replica_count,
     std::shared_ptr<ParallelReplicasReadingCoordinator> coordinator)
@@ -48,24 +48,37 @@ std::unique_ptr<QueryPlan> createLocalPlan(
     checkStackSize();
 
     auto query_plan = std::make_unique<QueryPlan>();
+    auto new_context = Context::createCopy(context);
+
+    /// There are much things that are needed for coordination
+    /// during reading with parallel replicas
+    if (coordinator)
+    {
+        new_context->parallel_reading_coordinator = coordinator;
+        new_context->getClientInfo().collaborate_with_initiator = true;
+        new_context->getClientInfo().query_kind = ClientInfo::QueryKind::SECONDARY_QUERY;
+        new_context->getClientInfo().count_participating_replicas = replica_count;
+        new_context->getClientInfo().number_of_current_replica = replica_num;
+        new_context->getClientInfo().parallel_replicas_local_replica = true;
+        new_context->setMergeTreeAllRangesCallback([coordinator](InitialAllRangesAnnouncement announcement)
+        {
+            coordinator->handleInitialAllRangesAnnouncement(announcement);
+        });
+        new_context->setMergeTreeReadTaskCallback([coordinator](ParallelReadRequest request) -> std::optional<ParallelReadResponse>
+        {
+            return coordinator->handleRequest(request);
+        });
+    }
+
     /// Do not apply AST optimizations, because query
     /// is already optimized and some optimizations
     /// can be applied only for non-distributed tables
     /// and we can produce query, inconsistent with remote plans.
     auto interpreter = InterpreterSelectQuery(
-        query_ast, context,
+        query_ast, new_context,
         SelectQueryOptions(processed_stage)
-            .setShardInfo(shard_num, shard_count)
+            .setShardInfo(static_cast<UInt32>(shard_num), static_cast<UInt32>(shard_count))
             .ignoreASTOptimizations());
-
-    interpreter.setProperClientInfo(replica_num, replica_count);
-    if (coordinator)
-    {
-        interpreter.setMergeTreeReadTaskCallbackAndClientInfo([coordinator](PartitionReadRequest request) -> std::optional<PartitionReadResponse>
-        {
-            return coordinator->handleRequest(request);
-        });
-    }
 
     interpreter.buildQueryPlan(*query_plan);
     addConvertingActions(*query_plan, header);

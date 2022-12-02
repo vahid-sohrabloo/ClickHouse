@@ -82,7 +82,7 @@ public:
         size_t preferred_block_size_bytes_,
         bool do_not_steal_tasks_ = false);
 
-    MergeTreeReadTaskPtr getTask(size_t min_marks_to_read, size_t thread, const Names & ordered_names);
+    MergeTreeReadTaskPtr getTask(size_t thread);
 
     /** Each worker could call this method and pass information about read performance.
       * If read performance is too low, pool could decide to lower number of threads: do not assign more tasks to several threads.
@@ -97,13 +97,14 @@ private:
 
     void fillPerThreadInfo(
         size_t threads, size_t sum_marks, std::vector<size_t> per_part_sum_marks,
-        const RangesInDataParts & parts, size_t min_marks_for_concurrent_read);
+        const RangesInDataParts & parts);
 
     StorageSnapshotPtr storage_snapshot;
     const Names column_names;
     const Names virtual_column_names;
     bool do_not_steal_tasks;
     bool predict_block_size_bytes;
+    size_t min_marks_for_concurrent_read{0};
 
     struct PerPartParams
     {

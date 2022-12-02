@@ -7,6 +7,8 @@
 #include <array>
 #include <base/types.h>
 #include <base/DayNum.h>
+#include <IO/ReadBuffer.h>
+#include <IO/WriteBuffer.h>
 #include <Storages/MergeTree/MergeTreeDataFormatVersion.h>
 
 
@@ -109,6 +111,10 @@ struct MergeTreePartInfo
     {
         return static_cast<UInt64>(max_block - min_block + 1);
     }
+
+    void serialize(WriteBuffer & out) const;
+    void describe(WriteBuffer & out) const;
+    void deserialize(ReadBuffer & in);
 
     /// Simple sanity check for partition ID. Checking that it's not too long or too short, doesn't contain a lot of '_'.
     static void validatePartitionID(const String & partition_id, MergeTreeDataFormatVersion format_version);

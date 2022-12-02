@@ -18,7 +18,7 @@ public:
 
     String getName() const override { return "StorageProxy"; }
 
-    bool isRemote() const override { return getNested()->isRemote(); }
+    bool isRemote(ContextPtr local_context) const override { return getNested()->isRemote(local_context); }
     bool isView() const override { return getNested()->isView(); }
     bool supportsSampling() const override { return getNested()->supportsSampling(); }
     bool supportsFinal() const override { return getNested()->supportsFinal(); }

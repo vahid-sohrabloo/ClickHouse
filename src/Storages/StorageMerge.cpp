@@ -133,9 +133,9 @@ void StorageMerge::forEachTable(F && func) const
     });
 }
 
-bool StorageMerge::isRemote() const
+bool StorageMerge::isRemote(ContextPtr local_context) const
 {
-    auto first_remote_table = getFirstTable([](const StoragePtr & table) { return table && table->isRemote(); });
+    auto first_remote_table = getFirstTable([local_context](const StoragePtr & table) { return table && table->isRemote(local_context); });
     return first_remote_table != nullptr;
 }
 
@@ -413,7 +413,7 @@ void ReadFromMerge::initializePipeline(QueryPipelineBuilder & pipeline, const Bu
 
         auto modified_query_info = getModifiedQueryInfo(query_info, context, storage->getStorageID(), storage->as<StorageMerge>());
         auto syntax_result = TreeRewriter(context).analyzeSelect(
-            modified_query_info.query, TreeRewriterResult({}, storage, nested_storage_snaphsot));
+            modified_query_info.query, TreeRewriterResult(context, {}, storage, nested_storage_snaphsot));
 
         Names column_names_as_aliases;
         bool with_aliases = common_processed_stage == QueryProcessingStage::FetchColumns && !storage_columns.getAliases().empty();

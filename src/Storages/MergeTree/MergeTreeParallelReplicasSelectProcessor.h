@@ -1,22 +1,21 @@
 #pragma once
+
 #include <Storages/MergeTree/MergeTreeBaseSelectProcessor.h>
 
+#include <memory>
 
 namespace DB
 {
 
-class MergeTreeReadPool;
+class MergeTreeReadPoolParallelReplicas;
+using MergeTreeReadPoolParallelReplicasPtr = std::shared_ptr<MergeTreeReadPoolParallelReplicas>;
 
-
-/** Used in conjunction with MergeTreeReadPool, asking it for more work to do and performing whatever reads it is asked
-  * to perform.
-  */
-class MergeTreeThreadSelectAlgorithm final : public IMergeTreeSelectAlgorithm
+class MergeTreeParallelReplicasSelectProcessor final : public IMergeTreeSelectAlgorithm
 {
 public:
-    MergeTreeThreadSelectAlgorithm(
+    MergeTreeParallelReplicasSelectProcessor(
         size_t thread_,
-        const std::shared_ptr<MergeTreeReadPool> & pool_,
+        MergeTreeReadPoolParallelReplicasPtr pool_,
         UInt64 max_block_size_,
         size_t preferred_block_size_bytes_,
         size_t preferred_max_column_in_block_size_bytes_,
@@ -30,7 +29,7 @@ public:
 
     String getName() const override { return "MergeTreeThread"; }
 
-    ~MergeTreeThreadSelectAlgorithm() override;
+    ~MergeTreeParallelReplicasSelectProcessor() override;
 
 protected:
     /// Requests read task from MergeTreeReadPool and signals whether it got one
@@ -42,9 +41,9 @@ protected:
 
 private:
     /// "thread" index (there are N threads and each thread is assigned index in interval [0..N-1])
-    size_t thread;
+    [[ maybe_unused ]] size_t thread;
 
-    std::shared_ptr<MergeTreeReadPool> pool;
+    MergeTreeReadPoolParallelReplicasPtr pool;
 
     /// Last part read in this thread
     std::string last_readed_part_name;

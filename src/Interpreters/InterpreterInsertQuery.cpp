@@ -285,7 +285,7 @@ Chain InterpreterInsertQuery::buildChainImpl(
 
     /// Do not squash blocks if it is a sync INSERT into Distributed, since it lead to double bufferization on client and server side.
     /// Client-side bufferization might cause excessive timeouts (especially in case of big blocks).
-    if (!(settings.insert_distributed_sync && table->isRemote()) && !no_squash && !(query && query->watch))
+    if (!(settings.insert_distributed_sync && table->isRemote(context_ptr)) && !no_squash && !(query && query->watch))
     {
         bool table_prefers_large_blocks = table->prefersLargeBlocks();
 
@@ -332,7 +332,7 @@ BlockIO InterpreterInsertQuery::execute()
     if (!query.table_function)
         getContext()->checkAccess(AccessType::INSERT, query.table_id, query_sample_block.getNames());
 
-    if (query.select && table->isRemote() && settings.parallel_distributed_insert_select)
+    if (query.select && table->isRemote(getContext()) && settings.parallel_distributed_insert_select)
         // Distributed INSERT SELECT
         distributed_pipeline = table->distributedWrite(query, getContext());
 

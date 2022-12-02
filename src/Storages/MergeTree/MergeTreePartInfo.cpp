@@ -235,6 +235,36 @@ String MergeTreePartInfo::getPartNameV0(DayNum left_date, DayNum right_date) con
     return wb.str();
 }
 
+void MergeTreePartInfo::serialize(WriteBuffer & out) const
+{
+    writeStringBinary(partition_id, out);
+    writeIntBinary(min_block, out);
+    writeIntBinary(max_block, out);
+    writeIntBinary(level, out);
+    writeIntBinary(mutation, out);
+    writeBoolText(use_leagcy_max_level, out);
+}
+
+
+void MergeTreePartInfo::describe(WriteBuffer & out) const
+{
+    String result;
+    result += fmt::format("partition_id: {}", partition_id);
+    // TODO: More fields
+    out.write(result.c_str(), result.size());
+}
+
+
+void MergeTreePartInfo::deserialize(ReadBuffer & in)
+{
+    readStringBinary(partition_id, in);
+    readIntBinary(min_block, in);
+    readIntBinary(max_block, in);
+    readIntBinary(level, in);
+    readIntBinary(mutation, in);
+    readBoolText(use_leagcy_max_level, in);
+}
+
 DetachedPartInfo DetachedPartInfo::parseDetachedPartName(
     const DiskPtr & disk, std::string_view dir_name, MergeTreeDataFormatVersion format_version)
 {

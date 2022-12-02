@@ -95,6 +95,7 @@ void ClientInfo::write(WriteBuffer & out, UInt64 server_protocol_revision) const
         writeVarUInt(static_cast<UInt64>(collaborate_with_initiator), out);
         writeVarUInt(count_participating_replicas, out);
         writeVarUInt(number_of_current_replica, out);
+        writeVarUInt(static_cast<UInt64>(parallel_replicas_local_replica), out);
     }
 }
 
@@ -185,6 +186,8 @@ void ClientInfo::read(ReadBuffer & in, UInt64 client_protocol_revision)
         collaborate_with_initiator = static_cast<bool>(value);
         readVarUInt(count_participating_replicas, in);
         readVarUInt(number_of_current_replica, in);
+        readVarUInt(value, in);
+        parallel_replicas_local_replica = static_cast<bool>(value);
     }
 }
 

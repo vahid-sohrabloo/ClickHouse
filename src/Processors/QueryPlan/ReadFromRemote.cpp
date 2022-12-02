@@ -13,6 +13,7 @@
 #include <Interpreters/InterpreterSelectQuery.h>
 #include <IO/ConnectionTimeoutsContext.h>
 #include <Common/checkStackSize.h>
+#include "Core/QueryProcessingStage.h"
 #include <Client/ConnectionPool.h>
 #include <Client/ConnectionPoolWithFailover.h>
 #include <QueryPipeline/QueryPipelineBuilder.h>
@@ -232,8 +233,9 @@ void ReadFromRemote::initializePipeline(QueryPipelineBuilder & pipeline, const B
 
 
 ReadFromParallelRemoteReplicasStep::ReadFromParallelRemoteReplicasStep(
+    ASTPtr query_ast_,
+    Cluster::ShardInfo shard_info_,
     ParallelReplicasReadingCoordinatorPtr coordinator_,
-    ClusterProxy::SelectStreamFactory::Shard shard_,
     Block header_,
     QueryProcessingStage::Enum stage_,
     StorageID main_table_,
@@ -246,9 +248,11 @@ ReadFromParallelRemoteReplicasStep::ReadFromParallelRemoteReplicasStep(
     std::shared_ptr<const StorageLimitsList> storage_limits_,
     SortDescription output_sort_description_,
     DataStream::SortScope output_sort_scope_)
-    : ISourceStep(DataStream{.header = std::move(header_)})
+    : ISourceStep(DataStream{.header = header_})
+    , shard_info(shard_info_)
+    , query_ast(query_ast_)
+    , header(std::move(header_))
     , coordinator(std::move(coordinator_))
-    , shard(std::move(shard_))
     , stage(std::move(stage_))
     , main_table(std::move(main_table_))
     , table_func_ptr(table_func_ptr_)
@@ -261,7 +265,7 @@ ReadFromParallelRemoteReplicasStep::ReadFromParallelRemoteReplicasStep(
 {
     std::vector<String> description;
 
-    for (const auto & address : shard.shard_info.all_addresses)
+    for (const auto & address : shard_info.all_addresses)
         if (!address.is_local)
             description.push_back(fmt::format("Replica: {}", address.host_name));
 
@@ -272,25 +276,30 @@ ReadFromParallelRemoteReplicasStep::ReadFromParallelRemoteReplicasStep(
 }
 
 
+void ReadFromParallelRemoteReplicasStep::requestReadingInOrder()
+{
+    coordinator->setMode(CoordinationMode::WithOrder);
+}
+
+
 void ReadFromParallelRemoteReplicasStep::initializePipeline(QueryPipelineBuilder & pipeline, const BuildQueryPipelineSettings &)
 {
     Pipes pipes;
-
     const Settings & current_settings = context->getSettingsRef();
     auto timeouts = ConnectionTimeouts::getTCPTimeoutsWithFailover(current_settings);
 
-    for (size_t replica_num = 0; replica_num < shard.shard_info.getAllNodeCount(); ++replica_num)
+    for (size_t replica_num = 0; replica_num < shard_info.getAllNodeCount(); ++replica_num)
     {
-        if (shard.shard_info.all_addresses[replica_num].is_local)
+        if (shard_info.all_addresses[replica_num].is_local)
             continue;
 
         IConnections::ReplicaInfo replica_info
         {
-            .all_replicas_count = shard.shard_info.getAllNodeCount(),
+            .all_replicas_count = shard_info.getAllNodeCount(),
             .number_of_current_replica = replica_num
         };
 
-        auto pool = shard.shard_info.per_replica_pools[replica_num];
+        auto pool = shard_info.per_replica_pools[replica_num];
         assert(pool);
 
         auto pool_with_failover =  std::make_shared<ConnectionPoolWithFailover>(
@@ -315,27 +324,20 @@ void ReadFromParallelRemoteReplicasStep::addPipeForSingeReplica(Pipes & pipes, s
     bool add_totals = false;
     bool add_extremes = false;
     bool async_read = context->getSettingsRef().async_socket_for_remote;
-    if (stage == QueryProcessingStage::Complete)
-    {
-        add_totals = shard.query->as<ASTSelectQuery &>().group_by_with_totals;
-        add_extremes = context->getSettingsRef().extremes;
-    }
+    assert(stage != QueryProcessingStage::Complete);
 
-    String query_string = formattedAST(shard.query);
-
-    scalars["_shard_num"]
-        = Block{{DataTypeUInt32().createColumnConst(1, shard.shard_info.shard_num), std::make_shared<DataTypeUInt32>(), "_shard_num"}};
-
-    std::shared_ptr<RemoteQueryExecutor> remote_query_executor;
-
-    remote_query_executor = std::make_shared<RemoteQueryExecutor>(
-            pool, query_string, shard.header, context, throttler, scalars, external_tables, stage,
-            RemoteQueryExecutor::Extension{.parallel_reading_coordinator = coordinator, .replica_info = std::move(replica_info)});
+    auto remote_query_executor = std::make_shared<RemoteQueryExecutor>(
+        pool,
+        formattedAST(query_ast),
+        header,
+        context,
+        throttler,
+        scalars,
+        external_tables,
+        stage,
+        RemoteQueryExecutor::Extension{.parallel_reading_coordinator = coordinator, .replica_info = std::move(replica_info)});
 
     remote_query_executor->setLogger(log);
-
-    if (!table_func_ptr)
-        remote_query_executor->setMainTable(main_table);
 
     pipes.emplace_back(createRemoteSourcePipe(remote_query_executor, add_agg_info, add_totals, add_extremes, async_read));
     addConvertingActions(pipes.back(), output_stream->header);

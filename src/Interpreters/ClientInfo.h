@@ -113,6 +113,7 @@ public:
     bool collaborate_with_initiator{false};
     UInt64 count_participating_replicas{0};
     UInt64 number_of_current_replica{0};
+    bool parallel_replicas_local_replica{false};
 
     bool empty() const { return query_kind == QueryKind::NO_QUERY; }
 

@@ -659,6 +659,7 @@ void StorageDistributed::read(
     const size_t /*max_block_size*/,
     const size_t /*num_streams*/)
 {
+
     const auto * select_query = query_info.query->as<ASTSelectQuery>();
     if (select_query->final() && local_context->getSettingsRef().allow_experimental_parallel_reading_from_replicas)
         throw Exception(ErrorCodes::ILLEGAL_FINAL, "Final modifier is not allowed together with parallel reading from replicas feature");
@@ -693,25 +694,13 @@ void StorageDistributed::read(
             storage_snapshot,
             processed_stage);
 
-
-    auto settings = local_context->getSettingsRef();
-    bool parallel_replicas = settings.max_parallel_replicas > 1 && settings.allow_experimental_parallel_reading_from_replicas && !settings.use_hedged_requests;
-
-    if (parallel_replicas)
-        ClusterProxy::executeQueryWithParallelReplicas(
-            query_plan, main_table, remote_table_function_ptr,
-            select_stream_factory, modified_query_ast,
-            local_context, query_info,
-            sharding_key_expr, sharding_key_column_name,
-            query_info.cluster, processed_stage);
-    else
-        ClusterProxy::executeQuery(
-            query_plan, header, processed_stage,
-            main_table, remote_table_function_ptr,
-            select_stream_factory, log, modified_query_ast,
-            local_context, query_info,
-            sharding_key_expr, sharding_key_column_name,
-            query_info.cluster);
+    ClusterProxy::executeQuery(
+        query_plan, header, processed_stage,
+        main_table, remote_table_function_ptr,
+        select_stream_factory, log, modified_query_ast,
+        local_context, query_info,
+        sharding_key_expr, sharding_key_column_name,
+        query_info.cluster);
 
     /// This is a bug, it is possible only when there is no shards to query, and this is handled earlier.
     if (!query_plan.isInitialized())
