@@ -2,15 +2,9 @@
 
 #include <algorithm>
 #include <mutex>
-#include <ostream>
 #include <vector>
-#include <compare>
-#include <numeric>
-#include <unordered_map>
 #include <map>
-#include <iostream>
 #include <set>
-#include <cassert>
 
 #include <consistent_hashing.h>
 
@@ -18,8 +12,6 @@
 #include <Common/SipHash.h>
 #include <Common/thread_local_rng.h>
 #include <base/types.h>
-#include <base/scope_guard.h>
-#include <Common/Stopwatch.h>
 #include "IO/WriteBufferFromString.h"
 #include "Storages/MergeTree/RangesInDataPart.h"
 #include "Storages/MergeTree/RequestResponse.h"
@@ -29,6 +21,11 @@
 
 namespace DB
 {
+
+namespace ErrorCodes
+{
+    extern const int LOGICAL_ERROR;
+}
 
 class ParallelReplicasReadingCoordinator::ImplInterface
 {
@@ -43,7 +40,7 @@ public:
     {
         String result = "Statistics: ";
         for (size_t i = 0; i < stats.size(); ++i)
-            result += fmt::format("-- replica {}, requsts: {} marks: {} ", i, stats[i].number_of_requests, stats[i].sum_marks);
+            result += fmt::format("-- replica {}, requests: {} marks: {} ", i, stats[i].number_of_requests, stats[i].sum_marks);
         return result;
     }
 
@@ -100,7 +97,7 @@ public:
     Parts all_parts_to_read;
     /// Contains only parts which we haven't started to read from
     PartRefs delayed_parts;
-    /// Per-replica preferred parts splitted by consistent hash
+    /// Per-replica preferred parts split by consistent hash
     /// Once all task will be done by some replica, it can steal tasks
     std::vector<PartRefs> reading_state;
 
@@ -203,7 +200,7 @@ void DefaultCoordinator::finalizeReadingState()
         delayed_parts.pop_front();
     }
 
-    LOG_TRACE(log, "Reading state is fully initialized" );
+    LOG_TRACE(log, "Reading state is fully initialized");
 }
 
 
@@ -274,7 +271,7 @@ ParallelReadResponse DefaultCoordinator::handleRequest(ParallelReadRequest reque
 {
     std::lock_guard lock(mutex);
 
-    LOG_TRACE(log, "Handling request from replica {}, minimal marks size is {}", request.replica_num, request.min_number_of_marks );
+    LOG_TRACE(log, "Handling request from replica {}, minimal marks size is {}", request.replica_num, request.min_number_of_marks);
 
     size_t current_mark_size = 0;
     ParallelReadResponse response;
@@ -323,7 +320,7 @@ template <CoordinationMode mode>
 class InOrderCoordinator : public ParallelReplicasReadingCoordinator::ImplInterface
 {
 public:
-    explicit InOrderCoordinator( [[ maybe_unused ]] size_t replicas_count_)
+    explicit InOrderCoordinator([[ maybe_unused ]] size_t replicas_count_)
         : stats(replicas_count_)
     {}
     ~InOrderCoordinator() override

@@ -8,11 +8,6 @@
 namespace DB
 {
 
-namespace ErrorCodes
-{
-    extern const int LOGICAL_ERROR;
-}
-
 MergeTreeParallelReplicasSelectProcessor::MergeTreeParallelReplicasSelectProcessor(
     size_t thread_,
     MergeTreeReadPoolParallelReplicasPtr pool_,

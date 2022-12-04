@@ -7,11 +7,6 @@
 namespace DB
 {
 
-namespace ErrorCodes
-{
-    extern const int LOGICAL_ERROR;
-}
-
 MergeTreeThreadSelectAlgorithm::MergeTreeThreadSelectAlgorithm(
     size_t thread_,
     const MergeTreeReadPoolPtr & pool_,
