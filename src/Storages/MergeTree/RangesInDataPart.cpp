@@ -61,7 +61,7 @@ void RangesInDataPartsDescription::deserialize(ReadBuffer & in)
 
 void RangesInDataPartsDescription::merge(RangesInDataPartsDescription & other)
 {
-    for (auto desc : other)
+    for (const auto & desc : other)
         this->emplace_back(desc);
 }
 

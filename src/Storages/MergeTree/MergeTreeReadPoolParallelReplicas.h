@@ -28,7 +28,7 @@ public:
         StorageSnapshotPtr storage_snapshot_,
         size_t threads_,
         ParallelReadingExtension extension_,
-        RangesInDataParts && parts_,
+        const RangesInDataParts & parts_,
         const PrewhereInfoPtr & prewhere_info_,
         const Names & column_names_,
         const Names & virtual_column_names_,

@@ -19,9 +19,8 @@ namespace ErrorCodes
     extern const int LOGICAL_ERROR;
 }
 
-MergeTreeReadPoolParallelReplicas::~MergeTreeReadPoolParallelReplicas()
-{
-}
+MergeTreeReadPoolParallelReplicas::~MergeTreeReadPoolParallelReplicas() = default;
+
 
 void MergeTreeReadPoolParallelReplicas::initialize()
 {

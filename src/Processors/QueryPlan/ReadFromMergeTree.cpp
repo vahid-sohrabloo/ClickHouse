@@ -211,7 +211,7 @@ Pipe ReadFromMergeTree::readFromPoolParallelReplicas(
         storage_snapshot,
         max_streams,
         extension,
-        std::move(parts_with_range),
+        parts_with_range,
         prewhere_info,
         required_columns,
         virt_column_names,
