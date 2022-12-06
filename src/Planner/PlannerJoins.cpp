@@ -671,9 +671,19 @@ std::shared_ptr<IJoin> chooseJoinAlgorithm(std::shared_ptr<TableJoin> & table_jo
 {
     trySetStorageInTableJoin(right_table_expression, table_join);
 
+    auto & right_table_expression_data = planner_context->getTableExpressionDataOrThrow(right_table_expression);
+
     /// JOIN with JOIN engine.
     if (auto storage = table_join->getStorageJoin())
-        return storage->getJoinLocked(table_join, planner_context->getQueryContext());
+    {
+        NameToNameMap column_renames;
+        for (const auto & result_column : right_table_expression_header)
+        {
+            const auto & source_column_name = right_table_expression_data.getColumnNameOrThrow(result_column.name);
+            column_renames[source_column_name] = result_column.name;
+        }
+        return storage->getJoinLocked(table_join, planner_context->getQueryContext(), column_renames);
+    }
 
     /** JOIN with constant.
       * Example: SELECT * FROM test_table AS t1 INNER JOIN test_table AS t2 ON 1;

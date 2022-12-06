@@ -161,7 +161,7 @@ void StorageJoin::mutate(const MutationCommands & commands, ContextPtr context)
     }
 }
 
-HashJoinPtr StorageJoin::getJoinLocked(std::shared_ptr<TableJoin> analyzed_join, ContextPtr context) const
+HashJoinPtr StorageJoin::getJoinLocked(std::shared_ptr<TableJoin> analyzed_join, ContextPtr context, const NameToNameMap & column_renames) const
 {
     auto metadata_snapshot = getInMemoryMetadataPtr();
     if (!analyzed_join->sameStrictnessAndKind(strictness, kind))
@@ -174,11 +174,12 @@ HashJoinPtr StorageJoin::getJoinLocked(std::shared_ptr<TableJoin> analyzed_join,
             "Table {} needs the same join_use_nulls setting as present in LEFT or FULL JOIN",
             getStorageID().getNameForLogs());
 
-    /// TODO: check key columns
+    for (const auto & [from_name, to_name] : column_renames)
+        analyzed_join->setRename(from_name, to_name);
 
-    /// Set names qualifiers: table.column -> column
-    /// It's required because storage join stores non-qualified names
-    /// Qualifies will be added by join implementation (HashJoin)
+    /// Set qualified identifiers to original names (table.column -> column).
+    /// It's required because storage join stores non-qualified names.
+    /// Qualifies will be added by join implementation (`setRename` is called above).
     analyzed_join->setRightKeys(key_names);
 
     HashJoinPtr join_clone = std::make_shared<HashJoin>(analyzed_join, getRightSampleBlock());

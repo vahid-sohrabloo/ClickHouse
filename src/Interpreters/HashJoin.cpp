@@ -225,7 +225,7 @@ HashJoin::HashJoin(std::shared_ptr<TableJoin> table_join_, const Block & right_s
     , right_sample_block(right_sample_block_)
     , log(&Poco::Logger::get("HashJoin"))
 {
-    LOG_DEBUG(log, "HashJoin. Datatype: {}, kind: {}, strictness: {}", data->type, kind, strictness);
+    LOG_DEBUG(log, "HashJoin. Datatype: {}, kind: {}, strictness: {}, right header: {}", data->type, kind, strictness, right_sample_block.dumpStructure());
 
     if (isCrossOrComma(kind))
     {
@@ -1492,7 +1492,7 @@ void HashJoin::joinBlockImpl(
         {
             const auto & right_key = required_right_keys.getByPosition(i);
             auto right_col_name = getTableJoin().renamedRightColumnName(right_key.name);
-            if (!block.findByName(right_col_name /*right_key.name*/))
+            if (!block.findByName(right_col_name))
             {
                 const auto & left_name = required_right_keys_sources[i];
 
@@ -1512,7 +1512,7 @@ void HashJoin::joinBlockImpl(
                 block.insert(std::move(right_col));
 
                 if constexpr (jf.need_replication)
-                    right_keys_to_replicate.push_back(block.getPositionByName(right_key.name));
+                    right_keys_to_replicate.push_back(block.getPositionByName(right_col_name));
             }
         }
     }
