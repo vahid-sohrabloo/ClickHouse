@@ -69,12 +69,12 @@ private:
     size_t writeImpl(const char * data, size_t size, size_t offset, FileSegmentKind segment_kind, bool strict);
     size_t reserveImpl(size_t size, size_t offset, FileSegmentKind segment_kind, bool strict);
 
-    /// Reserves space avaliable in the current segment.
-    /// Allocated new segment if it is full, otherwise reserves the rest of avaliable space in the current.
+    /// Reserves space available in the current segment.
+    /// Allocated new segment if it is full, otherwise reserves the rest of available space in the current.
     size_t reserveInCurrentSegment(size_t size, size_t offset, FileSegmentKind segment_kind, bool strict);
 
     /// Write data to file segment
-    /// It should be reseved by reserveInCurrentSegment in advance.
+    /// It should be reserved by reserveInCurrentSegment in advance.
     void writeCurrentSegment(const char * data, size_t size, size_t offset);
 
     FileCache * cache;
