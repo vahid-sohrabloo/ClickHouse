@@ -194,8 +194,6 @@ private:
     void executeDistinct(QueryPlan & query_plan, bool before_order, Names columns, bool pre_distinct);
     void executeExtremes(QueryPlan & query_plan);
     void executeSubqueriesInSetsAndJoins(QueryPlan & query_plan);
-    void executeWriteToQueryResultCache(QueryPlan & query_plan);
-    bool executeReadFromQueryResultCache(QueryPlan & query_plan);
 
     enum class Modificator
     {

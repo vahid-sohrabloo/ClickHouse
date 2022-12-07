@@ -57,7 +57,6 @@
 #include <Processors/QueryPlan/MergingAggregatedStep.h>
 #include <Processors/QueryPlan/OffsetStep.h>
 #include <Processors/QueryPlan/QueryPlan.h>
-#include <Processors/QueryPlan/QueryResultCachingStep.h>
 #include <Processors/QueryPlan/ReadFromPreparedSource.h>
 #include <Processors/QueryPlan/ReadNothingStep.h>
 #include <Processors/QueryPlan/RollupStep.h>
@@ -95,7 +94,6 @@
 #include <Common/scope_guard_safe.h>
 #include <Common/typeid_cast.h>
 
-#include <Functions/FunctionFactory.h>
 
 namespace DB
 {
@@ -728,93 +726,10 @@ InterpreterSelectQuery::InterpreterSelectQuery(
     sanitizeBlock(result_header, true);
 }
 
-static void has_non_cacheable_functions(ASTPtr ast, ContextPtr context, bool & cacheable)
-{
-    const FunctionFactory & function_factory = FunctionFactory::instance();
-
-    if (const auto * function = ast->as<ASTFunction>())
-    {
-        if (const FunctionOverloadResolverPtr resolver = function_factory.tryGet(function->name, context))
-        {
-            if (!resolver->isDeterministic())
-            {
-                cacheable = false;
-                return;
-            }
-        }
-    }
-
-    for (const auto & child : ast->children)
-    {
-        has_non_cacheable_functions(child, context, cacheable);
-    }
-}
-
-void InterpreterSelectQuery::executeWriteToQueryResultCache(QueryPlan & query_plan)
-{
-    auto settings = context->getSettingsRef();
-    QueryResultCachePtr query_result_cache = context->getQueryResultCache();
-
-    // TODO more none cacheable functions
-    bool cacheable = true;
-    has_non_cacheable_functions(query_ptr, context, cacheable);
-    if (!cacheable)
-        return;
-
-    if (!settings.experimental_query_result_cache_active_usage || query_result_cache == nullptr)
-        return;
-    /// TODO If cache == nullptr, we could create it here - it was likely turned on via cfg after system start
-
-    auto cache_key = QueryResultCache::Key{query_ptr, result_header, settings,
-                                           settings.share_query_result_cache_between_users
-                                               ? std::optional<String>()
-                                               : std::make_optional<String>(context->getUserName())
-                                          };
-
-    size_t num_query_runs = query_result_cache->recordQueryRun(cache_key);
-    if (query_result_cache->containsResult(cache_key) || num_query_runs < settings.min_query_runs_for_query_result_cache)
-        return;
-
-    auto caching_step = std::make_unique<QueryResultCachingStep>(query_plan.getCurrentDataStream(), context->getQueryResultCache(), cache_key);
-    caching_step->setStepDescription("Put query result in cache");
-    query_plan.addStep(std::move(caching_step));
-}
-
-bool InterpreterSelectQuery::executeReadFromQueryResultCache(QueryPlan & query_plan)
-{
-    auto settings = context->getSettingsRef();
-    QueryResultCachePtr query_result_cache = context->getQueryResultCache();
-
-    if (!settings.experimental_query_result_cache_passive_usage || query_result_cache == nullptr)
-        return false;
-    /// TODO If cache == nullptr, we could create it here - it was likely turned on via cfg after system start
-
-    auto cache_key = QueryResultCache::Key{query_ptr, result_header, settings,
-                                           settings.share_query_result_cache_between_users
-                                               ? std::optional<String>()
-                                               : std::make_optional<String>(context->getUserName())
-                                          };
-
-    QueryResultCache::Reader reader = query_result_cache->getReader(cache_key);
-    if (reader.containsResult())
-    {
-        /// TODO the entry can be evicted/dropped in between ... needs synchronization
-        auto read_from_cache_step = std::make_unique<ReadFromPreparedSource>(reader.getPipe());
-        read_from_cache_step->setStepDescription("Read query result from cache");
-        query_plan.addStep(std::move(read_from_cache_step));
-        return true;
-    }
-    return false;
-}
-
 void InterpreterSelectQuery::buildQueryPlan(QueryPlan & query_plan)
 {
-    if (executeReadFromQueryResultCache(query_plan))
-        return;
-
     executeImpl(query_plan, std::move(input_pipe));
 
-    executeWriteToQueryResultCache(query_plan);
     /// We must guarantee that result structure is the same as in getSampleBlock()
     ///
     /// But if it's a projection query, plan header does not match result_header.

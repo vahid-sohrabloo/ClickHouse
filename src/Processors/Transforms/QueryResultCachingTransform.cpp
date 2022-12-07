@@ -9,9 +9,9 @@ QueryResultCachingTransform::QueryResultCachingTransform(const Block & header_, 
 {
 }
 
-void QueryResultCachingTransform::transform(Chunk & chunk)
+void QueryResultCachingTransform::transform([[maybe_unused]] Chunk & chunk)
 {
-    cache_writer.insertChunk(chunk.clone());
+    /// cache_writer.insertChunk(chunk.clone());
 }
 
 };

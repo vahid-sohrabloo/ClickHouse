@@ -14,6 +14,7 @@
 #include <QueryPipeline/BlockIO.h>
 #include <Processors/Transforms/CountingTransform.h>
 #include <Processors/Transforms/getSourceFromASTInsertQuery.h>
+#include <Processors/Transforms/QueryResultCachingTransform.h>
 
 #include <Parsers/ASTIdentifier.h>
 #include <Parsers/ASTInsertQuery.h>
@@ -679,10 +680,92 @@ static std::tuple<ASTPtr, BlockIO> executeQueryImpl(
                 if (OpenTelemetry::CurrentContext().isTraceEnabled())
                 {
                     auto * raw_interpreter_ptr = interpreter.get();
-                    std::string class_name(demangle(typeid(*raw_interpreter_ptr).name()));
+                    String class_name(demangle(typeid(*raw_interpreter_ptr).name()));
                     span = std::make_unique<OpenTelemetry::SpanHolder>(class_name + "::execute()");
                 }
                 res = interpreter->execute();
+
+                /// static void has_non_cacheable_functions(ASTPtr ast, ContextPtr context, bool & cacheable)
+                /// {
+                ///     const FunctionFactory & function_factory = FunctionFactory::instance();
+                ///
+                ///     if (const auto * function = ast->as<ASTFunction>())
+                ///     {
+                ///         if (const FunctionOverloadResolverPtr resolver = function_factory.tryGet(function->name, context))
+                ///         {
+                ///             if (!resolver->isDeterministic())
+                ///             {
+                ///                 cacheable = false;
+                ///                 return;
+                ///             }
+                ///         }
+                ///     }
+                ///
+                ///     for (const auto & child : ast->children)
+                ///     {
+                ///         has_non_cacheable_functions(child, context, cacheable);
+                ///     }
+                /// }
+
+                QueryResultCachePtr query_result_cache = context->getQueryResultCache();
+                // TODO check that ast is a SelectWithUnionQuery
+                if (settings.experimental_query_result_cache_active_usage && query_result_cache != nullptr)
+                {
+                    // TODO more none cacheable functions
+                    /// bool cacheable = true;
+                    /// has_non_cacheable_functions(query_ptr, context, cacheable);
+                    /// if (!cacheable)
+                    ///     return;
+
+                    QueryPlanResourceHolder qpr_holder;
+                    std::shared_ptr<Processors> procs = std::make_shared<Processors>();
+
+                    std::optional<String> username = settings.share_query_result_cache_between_users
+                                                       ? std::nullopt
+                                                       : std::make_optional<String>(context->getUserName());
+                    QueryResultCache::Key cache_key(ast, res.pipeline.getHeader(), settings, username); // XXX ehm ... does getHeader() return the right header?
+                    auto qrct = std::make_shared<QueryResultCachingTransform>(Block(), query_result_cache, cache_key);
+
+                    size_t num_query_runs = query_result_cache->recordQueryRun(cache_key);
+                    if (!query_result_cache->containsResult(cache_key) && num_query_runs >= settings.min_query_runs_for_query_result_cache)
+                    {
+                        procs->push_back(qrct);
+                        QueryPipeline pipeline(std::move(qpr_holder), procs); // XXX
+
+                        res.pipeline.addCompletedPipeline(std::move(pipeline));
+                    }
+                    // TODO delete QueryResultCachingStep?
+                }
+
+                /// bool InterpreterSelectQuery::executeReadFromQueryResultCache(QueryPlan & query_plan)
+                /// {
+                ///     auto settings = context->getSettingsRef();
+                ///     QueryResultCachePtr query_result_cache = context->getQueryResultCache();
+                ///
+                ///     if (!settings.experimental_query_result_cache_passive_usage || query_result_cache == nullptr)
+                ///         return false;
+                ///     /// TODO If cache == nullptr, we could create it here - it was likely turned on via cfg after system start
+                ///
+                ///     auto cache_key = QueryResultCache::Key{query_ptr, result_header, settings,
+                ///                                            settings.share_query_result_cache_between_users
+                ///                                                ? std::optional<String>()
+                ///                                                : std::make_optional<String>(context->getUserName())
+                ///                                           };
+                ///
+                ///     QueryResultCache::Reader reader = query_result_cache->getReader(cache_key);
+                ///     if (reader.containsResult())
+                ///     {
+                ///         /// TODO the entry can be evicted/dropped in between ... needs synchronization
+                ///         auto read_from_cache_step = std::make_unique<ReadFromPreparedSource>(reader.getPipe());
+                ///         read_from_cache_step->setStepDescription("Read query result from cache");
+                ///         query_plan.addStep(std::move(read_from_cache_step));
+                ///         return true;
+                ///     }
+                ///     return false;
+                /// }
+                /// if (executeReadFromQueryResultCache(query_plan))
+                ///     return;
+
             }
         }
 

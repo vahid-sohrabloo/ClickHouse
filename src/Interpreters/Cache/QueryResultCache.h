@@ -6,7 +6,6 @@
 #include <Core/Settings.h>
 #include <Parsers/IAST.h>
 #include <Processors/Chunk.h>
-#include <Processors/Sources/SourceFromSingleChunk.h>
 #include <QueryPipeline/Pipe.h>
 
 namespace DB
@@ -21,6 +20,7 @@ namespace DB
 //   all encryption/decryption functions on the blocklist so that we never store cleartext in the cache - this could get funny with user
 //   sharing).
 // - think about key: query string, AST hash, serialized query plan hash?
+// - add doxygen
 
 class QueryResultCache
 {
