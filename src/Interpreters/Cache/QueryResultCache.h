@@ -78,7 +78,6 @@ public:
     };
 
     explicit QueryResultCache(size_t size_in_bytes);
-    ~QueryResultCache() = default;
 
     Reader getReader(Key key);
     Writer getWriter(Key key);

@@ -1,5 +1,5 @@
 #include "Interpreters/Cache/QueryResultCache.h"
-
+#include <Processors/Sources/SourceFromSingleChunk.h>
 #include <Common/SipHash.h>
 
 namespace DB
@@ -74,35 +74,6 @@ Pipe && QueryResultCache::Reader::getPipe()
     return std::move(pipe);
 }
 
-namespace {
-
-Chunk toSingleChunk(const Chunks& chunks)
-{
-    if (chunks.empty())
-        return {};
-
-    auto result_columns = chunks[0].clone().mutateColumns();
-    for (size_t i = 1; i != chunks.size(); ++i)
-    {
-        const Columns & columns = chunks[i].getColumns();
-        // TODO use Chunk::append()
-        for (size_t j = 0; j != columns.size(); ++j)
-            result_columns[j]->insertRangeFrom(*columns[j], 0, columns[j]->size());
-    }
-    const size_t num_rows = result_columns[0]->size();
-    return Chunk(std::move(result_columns), num_rows);
-}
-
-size_t weight(const Chunks & chunks)
-{
-    size_t weight = 0;
-    for (const auto & chunk : chunks)
-        weight += chunk.allocatedBytes();
-    return weight;
-}
-
-}
-
 QueryResultCache::Writer::Writer(Cache & cache_, Key key_)
     : cache(cache_)
     , key(key_)
@@ -116,7 +87,24 @@ try
     if (!can_insert)
         return;
 
-    auto entry = std::make_shared<Chunk>(toSingleChunk(chunks));
+    auto to_single_chunk = [](const Chunks& chunks_)
+    {
+        if (chunks_.empty())
+            return Chunk();
+
+        auto result_columns = chunks_[0].clone().mutateColumns();
+        for (size_t i = 1; i != chunks_.size(); ++i)
+        {
+            const Columns & columns = chunks_[i].getColumns();
+            // TODO use Chunk::append()
+            for (size_t j = 0; j != columns.size(); ++j)
+                result_columns[j]->insertRangeFrom(*columns[j], 0, columns[j]->size());
+        }
+        const size_t num_rows = result_columns[0]->size();
+        return Chunk(std::move(result_columns), num_rows);
+    };
+
+    auto entry = std::make_shared<Chunk>(to_single_chunk(chunks));
     cache.set(key, entry);
 
     LOG_DEBUG(&Poco::Logger::get("QueryResultCache::Writer"), "Stored key with header = {} and weight = {}",
@@ -133,7 +121,11 @@ void QueryResultCache::Writer::insertChunk(Chunk && chunk)
 
     chunks.push_back(std::move(chunk));
 
-    if (weight(chunks) > key.settings.query_result_cache_max_entry_size)
+    size_t weight = 0;
+    for (const auto & c : chunks)
+        weight += c.allocatedBytes();
+
+    if (weight > key.settings.query_result_cache_max_entry_size)
         can_insert = false;
 }
 
